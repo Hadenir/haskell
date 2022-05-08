@@ -1,15 +1,18 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-module JsonParser where
+module JsonParser
+    ( jsonParser
+    ) where
 
 import Control.Applicative
 import Control.Monad
 import Data.Attoparsec.Text (Parser)
-import qualified Data.Attoparsec.Text as P
+import qualified Data.Attoparsec.Text.Lazy as P
 import Data.Char
 import Data.Functor
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Text.Lazy (fromStrict)
 import qualified Json
 
 whitespaceParser :: Parser ()
@@ -54,7 +57,7 @@ stringParser = P.char '"' *> stringContentParser
                 't' -> return '\t'
                 'u' -> do
                     digits <- P.take 4
-                    case P.parseOnly (P.hexadecimal <* P.endOfInput) digits of
+                    case P.parseOnly (P.hexadecimal <* P.endOfInput) (fromStrict digits) of
                         Right num -> return $ chr num
                         Left _ -> fail "\\u escape sequence must always be followed by exactly 4 digits"
                 _ -> return char
@@ -105,3 +108,6 @@ jsonValueParser :: Parser Json.Value
 jsonValueParser = whitespaceParser *> (
         jsonBooleanParser <|> jsonNullParser <|> jsonObjectParser <|> jsonArrayParser <|> jsonNumberParser <|> jsonStringParser
     ) <* whitespaceParser
+
+jsonParser :: Parser Json.Value
+jsonParser = jsonValueParser
