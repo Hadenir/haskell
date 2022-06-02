@@ -3,40 +3,40 @@ module Lib
     ) where
 
 import Control.Monad
+import Control.Monad.Trans.State.Strict
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Pipes
-import qualified Pipes.Prelude as P
 import System.IO
 
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Attoparsec.Text (Parser)
-import qualified Data.Attoparsec.Text as A
+import qualified Json
+import JsonParser
+import JsonTransformer
 
 someFunc :: IO ()
-someFunc = print pp
+someFunc = runEffect $ parseJsonFile "testfile.json" >-> transform >-> prettyPrint
 
-pp :: Text
-pp = case A.parse (runEffect $ parseList >-> P.stdoutLn) "" of
-        A.Fail {} -> "Fail"
-        A.Done _ dbl -> "Great!"
-
-
-parseDouble :: Parser Double
-parseDouble = A.double
-
-parseWS :: Parser ()
-parseWS = void $ A.takeWhile isWhitespace
-    where
-        isWhitespace c = case c of
-            ' ' -> True
-            '\n' -> True
-            '\r' -> True
-            '\t' -> True
-            _ -> False
-
-parseList :: Producer String Parser ()
-parseList = do
-    _ <- lift parseWS
-    num <- lift parseDouble
-    yield $ show num
-    parseList
+prettyPrint :: Consumer Json.Token IO ()
+prettyPrint = flip evalStateT 0 $ forever $ do
+    token <- lift await
+    case token of
+        Json.ArrayEnd -> modify $ subtract 1
+        Json.ObjectEnd -> modify $ subtract 1
+        _ -> return ()
+    depth <- get
+    lift $ lift $ do
+        putStr $ concat $ replicate depth "  "
+        case token of
+            Json.Null -> putStrLn "null"
+            Json.Boolean bool ->  print bool
+            Json.String text -> T.putStrLn $ T.concat ["\"", text, "\""]
+            Json.Number num -> print num
+            Json.ArrayBegin -> putStrLn "["
+            Json.ArrayEnd -> putStrLn "]"
+            Json.ObjectBegin -> putStrLn "{"
+            Json.ObjectEnd -> putStrLn "}"
+            Json.ObjectField key -> T.putStrLn $ T.concat ["\"", key, "\":"]
+    case token of
+        Json.ArrayBegin -> modify (+1)
+        Json.ObjectBegin -> modify (+1)
+        _ -> return ()

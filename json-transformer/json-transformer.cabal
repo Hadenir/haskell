@@ -25,7 +25,11 @@ source-repository head
 
 library
   exposed-modules:
+      Json
+      JsonParser
+      JsonTransformer
       Lib
+      Parse
   other-modules:
       Paths_json_transformer
   hs-source-dirs:
@@ -38,6 +42,7 @@ library
     , containers
     , pipes
     , text
+    , transformers
   default-language: Haskell2010
 
 executable jsot
@@ -54,6 +59,7 @@ executable jsot
     , json-transformer
     , pipes
     , text
+    , transformers
   default-language: Haskell2010
 
 test-suite jsot-test
@@ -71,4 +77,5 @@ test-suite jsot-test
     , json-transformer
     , pipes
     , text
+    , transformers
   default-language: Haskell2010
