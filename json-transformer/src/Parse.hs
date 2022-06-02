@@ -9,11 +9,10 @@
 -- @
 module Parse
     ( StreamParser
-    , ParsePartialResult (PartialResult)
-    -- , parseFinish
-    -- , parseFinish'
-    -- , parseContinue
-    -- , parseContinue'
+    , ParsePartialResult
+    , parseFinish
+    , parseContinue
+    , parseNext
     , parse
     , parserInput
     , streamFile
@@ -50,19 +49,19 @@ data ParsePartialResult a = PartialResult (Maybe a) (Maybe (StreamParser a)) Boo
 -- | Helper type for conciseness.
 type StreamParser a = Parser (ParsePartialResult a)
 
--- -- | Helper function that creates result indicating current parser is finished.
--- parseFinish :: Maybe a -> StreamParser a
--- parseFinish val = return $ PartialResult val Nothing
+-- | Helper function that creates result indicating current parser is finished.
+parseFinish :: a -> StreamParser a
+parseFinish val = return $ PartialResult (Just val) Nothing False
 
--- parseFinish' :: a -> StreamParser a
--- parseFinish' val = return $ PartialResult (Just val) Nothing
+-- | Helper function that creates result indicating the parser can continue parsing
+--   using provided parser.
+parseContinue :: a -> StreamParser a -> StreamParser a
+parseContinue val parser = return $ PartialResult (Just val) (Just parser) False
 
--- -- | Helper function that creates result indicating the parser can continue parsing.
--- parseContinue :: Maybe a -> StreamParser a -> StreamParser a
--- parseContinue val parser = return $ PartialResult val (Just parser)
-
--- parseContinue' :: a -> StreamParser a -> StreamParser a
--- parseContinue' val parser = return $ PartialResult (Just val) (Just parser)
+-- | Helper function that creates result indicating the parser can continue parsing
+--   using provided parser. After it finishes, parsing will return to the current parser.
+parseNext :: StreamParser a -> StreamParser a
+parseNext parser = return $ PartialResult Nothing (Just parser) True
 
 -- | This function takes an Attoparsec parser returning @ParsePartialResult a@ and
 --   transforms it into a Pipe that consumes @Maybe Text@s and yields parsed values.
@@ -84,10 +83,6 @@ parse parser = flip evalStateT [] $ do
                 case chunk of
                     Nothing -> go $ cont T.empty
                     Just chunk -> go $ cont chunk
-
-            -- A.Done rest (PartialResult result next) -> do
-            --     forM_ result yield
-            --     forM_ next (\parser -> go (A.parse parser rest))
 
             A.Done rest (PartialResult result next keep) -> do
                 forM_ result (lift . yield)

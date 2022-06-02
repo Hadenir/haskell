@@ -10,9 +10,12 @@ import Pipes
 
 import qualified Json
 
+-- | Transforms JSON keeping only object fields named "first_name".
 transform :: Monad m => Pipe Json.Token Json.Token m ()
 transform = keepOnly "first_name" >-> discardEmptyFields
 
+-- | Stream transformer of JSON tokens that discards every value
+--   that isn't in an object field of passed name.
 keepOnly :: Monad m => Text -> Pipe Json.Token Json.Token m ()
 keepOnly fieldName = flip evalStateT [] $ forever $ do
     token <- lift await
@@ -32,6 +35,8 @@ keepOnly fieldName = flip evalStateT [] $ forever $ do
                         put ks
                         when (key == fieldName) $ lift $ yield token
 
+-- | Stream transformer of JSON tokens that discards empty object fields
+--   which may occur when discarding their values.
 discardEmptyFields :: Monad m => Pipe Json.Token Json.Token m ()
 discardEmptyFields = flip evalStateT Nothing $ forever $ do
     token <- lift await

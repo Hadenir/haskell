@@ -33,7 +33,7 @@ numberParser = A.double
 jsonNumberParser :: StreamParser Json.Token
 jsonNumberParser = do
     number <- numberParser
-    return $ PartialResult (Just $ Json.Number number) Nothing False
+    parseFinish $ Json.Number number
 
 stringParser :: Parser Text
 stringParser = whitespaceParser *> A.char '"' *> stringContentParser <* whitespaceParser
@@ -69,7 +69,7 @@ stringParser = whitespaceParser *> A.char '"' *> stringContentParser <* whitespa
 jsonStringParser :: StreamParser Json.Token
 jsonStringParser = do
     string <- stringParser
-    return $ PartialResult (Just $ Json.String string) Nothing False
+    parseFinish $ Json.String string
 
 booleanParser :: Parser Bool
 booleanParser = (A.string "true" $> True) <|> (A.string "false" $> False)
@@ -77,99 +77,50 @@ booleanParser = (A.string "true" $> True) <|> (A.string "false" $> False)
 jsonBooleanParser :: StreamParser Json.Token
 jsonBooleanParser = do
     boolean <- booleanParser
-    return $ PartialResult (Just $ Json.Boolean boolean) Nothing False
+    parseFinish $ Json.Boolean boolean
 
 nullParser :: Parser ()
 nullParser = void $ A.string "null"
 
 jsonNullParser :: StreamParser Json.Token
-jsonNullParser = nullParser >> return (PartialResult (Just Json.Null) Nothing False)
+jsonNullParser = nullParser >> parseFinish Json.Null
 
 jsonArrayParser :: StreamParser Json.Token
 jsonArrayParser = do
     char <- A.peekChar'
     case char of
-        '[' -> return $ PartialResult (Just Json.ArrayBegin) (Just jsonArrayElementParser) False
+        '[' -> parseContinue Json.ArrayBegin jsonArrayElementParser
         _ -> fail "not an array"
     where
         jsonArrayElementParser :: StreamParser Json.Token
         jsonArrayElementParser = do
             char <- A.anyChar <* whitespaceParser
             case char of
-                '[' -> (A.char ']' $> PartialResult (Just Json.ArrayEnd) Nothing False)
-                        <|> return (PartialResult Nothing (Just jsonTokenParser) True)
-                ',' -> return $ PartialResult Nothing (Just jsonTokenParser) True
-                ']' -> return $ PartialResult (Just Json.ArrayEnd) Nothing False
+                '[' -> (A.char ']' *> parseFinish Json.ArrayEnd) <|> parseNext jsonTokenParser
+                ',' -> parseNext jsonTokenParser
+                ']' -> parseFinish Json.ArrayEnd
                 _ -> fail $ "expected ']' or ',' but found '" ++ [char] ++ "'"
 
 jsonObjectParser :: StreamParser Json.Token
 jsonObjectParser = do
     char <- A.peekChar'
     case char of
-        '{' -> return $ PartialResult (Just Json.ObjectBegin) (Just jsonObjectFieldParser) False
+        '{' -> parseContinue Json.ObjectBegin jsonObjectFieldParser
         _ -> fail "not an object"
     where
         jsonObjectFieldParser :: StreamParser Json.Token
         jsonObjectFieldParser = do
             char <- A.anyChar <* whitespaceParser
             case char of
-                '{' -> (A.char '}' $> PartialResult (Just Json.ObjectEnd) Nothing False)
-                    <|> return (PartialResult Nothing (Just jsonObjectKeyParser) True)
-                ',' -> return $ PartialResult Nothing (Just jsonObjectKeyParser) True
-                '}' -> return $ PartialResult (Just Json.ObjectEnd) Nothing False
+                '{' -> (A.char '}' *> parseFinish Json.ObjectEnd) <|> parseNext jsonObjectKeyParser
+                ',' -> parseNext jsonObjectKeyParser
+                '}' -> parseFinish Json.ObjectEnd
                 _ -> fail $ "expected '}' or ',' but found '" ++ [char] ++ "'"
 
         jsonObjectKeyParser :: StreamParser Json.Token
         jsonObjectKeyParser = do
             key <- stringParser <* A.char ':'
-            return $ PartialResult (Just $ Json.ObjectField key) (Just jsonTokenParser) False
-
--- jsonObjectParser :: StreamParser Json.Token
--- jsonObjectParser = do
---     _ <- A.char '{'
-
---     where
---         jsonObjectEndParser :: StreamParser Json.Token
---         jsonObjectEndParser = do
---             char <- A.peekChar'
---             case char of
---                 '}' -> A.anyChar $> PartialResult (Just Json.ObjectEnd) Nothing False
---                 ',' -> A.anyChar $> PartialResult Nothing (Just jsonObjectFieldParser) True
---                 _ -> return $ PartialResult Nothing (Just jsonObjectFieldParser) True
-
---         jsonObjectFieldParser :: StreamParser Json.Token
---         jsonObjectFieldParser = do
---             key <- stringParser <* A.char ':'
---            char <- A.peekChar'
-
--- jsonObjectBeginParser :: StreamParser Json.Token
--- jsonObjectBeginParser = do
---     _ <- A.char '{'
---     parseContinue' Json.ObjectBegin jsonObjectFieldParser
-
--- jsonObjectFieldParser :: StreamParser Json.Token
--- jsonObjectFieldParser = do
---     key <- stringParser
---     _ <- A.char ':'
---     PartialResult value parser <- jsonTokenParser
---     case parser of
---         Just p -> case value of
---             Just v -> parseContinue' (Json.ObjectField (key, v)) p
---             Nothing -> parseContinue Nothing p
---         Nothing -> parseContinue value jsonObjectEndParser
-
--- jsonObjectEndParser :: StreamParser Json.Token
--- jsonObjectEndParser = do
---     char <- A.anyChar
---     case char of
---         '}' -> parseContinue' Json.ObjectEnd jsonTokenParser
---         ',' -> jsonObjectFieldParser
---         _ -> fail $ "expected ',' or '}' but found " ++ [char]
-
--- jsonWhitespaceParser :: StreamParser Json.Token
--- jsonWhitespaceParser = do
---     _ <- whitespaceParser
---     parseContinue Nothing jsonTokenParser
+            parseContinue (Json.ObjectField key) jsonTokenParser
 
 jsonTokenParser :: StreamParser Json.Token
 jsonTokenParser = whitespaceParser *> (
@@ -177,10 +128,8 @@ jsonTokenParser = whitespaceParser *> (
         jsonNullParser <|>
         jsonObjectParser <|>
         jsonArrayParser <|>
-        -- jsonArrayEndParser <|>
         jsonNumberParser <|>
         jsonStringParser
-        -- jsonWhitespaceParser
     ) <* whitespaceParser
 
 parseJsonFile :: FilePath -> Producer Json.Token IO ()
