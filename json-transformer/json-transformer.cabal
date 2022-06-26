@@ -27,10 +27,13 @@ library
   exposed-modules:
       Json
       JsonParser
+      JsonPath
       JsonTransformer
       Lib
       Parse
+      ParserCommon
       TransformRules
+      TransformRulesParser
   other-modules:
       Paths_json_transformer
   hs-source-dirs:

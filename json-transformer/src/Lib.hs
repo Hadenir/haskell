@@ -10,27 +10,36 @@ import Pipes
 import System.IO
 
 import qualified Json
+import JsonPath
 import JsonParser
 import JsonTransformer
+import TransformRules
+
+rules :: TransformRules
+rules = [
+    SetValueString "Konrad" (RootPath $ ArrayPath 0 $ ObjectPath "first_name" NilPath),
+    SetValueNull (RootPath $ ArrayPath 2 $ ObjectPath "ip_address" NilPath),
+    SetValueBool True (RootPath $ ArrayPath 4 $ ObjectPath "a" $ ObjectPath "b" NilPath)
+    ]
 
 someFunc :: IO ()
-someFunc = runEffect $ parseJsonFile "testfile.json" >-> printCurrentPath
+someFunc = runEffect $ parseJsonFile "testfile.json" >-> includePath >-> transform rules >-> prettyPrint
 
 printCurrentPath :: Consumer Json.Token IO ()
-printCurrentPath = flip evalStateT Json.rootPath $ forever $ do
+printCurrentPath = flip evalStateT rootPath $ forever $ do
     token <- lift await
 
     case token of
         Json.ObjectBegin -> return ()
-        Json.ObjectField member -> modify $ flip Json.enterObject member
-        Json.ArrayBegin -> modify $ flip Json.enterArray 0
-        Json.ArrayEnd -> modify Json.exitPath
+        Json.ObjectField member -> modify $ flip enterObject member
+        Json.ArrayBegin -> modify $ flip enterArray 0
+        Json.ArrayEnd -> modify exitPath
         _ -> do
             path <- get
             lift $ lift $ putStr $ show path ++ " = "
-            modify Json.exitPath
-            case Json.getLeaf path of
-                Json.ArrayPath index _ -> modify $ flip Json.enterArray (index + 1)
+            modify exitPath
+            case getLeaf path of
+                ArrayPath index _ -> modify $ flip enterArray (index + 1)
                 _ -> return ()
 
     lift $ lift $ case token of
