@@ -1,5 +1,6 @@
 module Lib
-    ( someFunc
+    ( readRulesFile
+    , transformFile
     ) where
 
 import Control.Monad
@@ -14,41 +15,17 @@ import JsonPath
 import JsonParser
 import JsonTransformer
 import TransformRules
+import TransformRulesParser
 
-rules :: TransformRules
-rules = [
-    SetValueString "Konrad" (RootPath $ ArrayPath 0 $ ObjectPath "first_name" NilPath),
-    SetValueNull (RootPath $ ArrayPath 2 $ ObjectPath "ip_address" NilPath),
-    SetValueBool True (RootPath $ ArrayPath 4 $ ObjectPath "a" $ ObjectPath "b" NilPath)
-    ]
+readRulesFile :: FilePath -> IO TransformRules
+readRulesFile filePath = do
+    content <- T.readFile filePath
+    case parseTransformRules content of
+        Right rules -> return rules
+        Left errorMsg -> error $ "Failed to parse transform rules: " ++ errorMsg
 
-someFunc :: IO ()
-someFunc = runEffect $ parseJsonFile "testfile.json" >-> includePath >-> transform rules >-> prettyPrint
-
-printCurrentPath :: Consumer Json.Token IO ()
-printCurrentPath = flip evalStateT rootPath $ forever $ do
-    token <- lift await
-
-    case token of
-        Json.ObjectBegin -> return ()
-        Json.ObjectField member -> modify $ flip enterObject member
-        Json.ArrayBegin -> modify $ flip enterArray 0
-        Json.ArrayEnd -> modify exitPath
-        _ -> do
-            path <- get
-            lift $ lift $ putStr $ show path ++ " = "
-            modify exitPath
-            case getLeaf path of
-                ArrayPath index _ -> modify $ flip enterArray (index + 1)
-                _ -> return ()
-
-    lift $ lift $ case token of
-        Json.Null -> putStrLn "null"
-        Json.Boolean b -> print b
-        Json.String text -> putStrLn $ T.unpack text
-        Json.Number number -> print number
-        Json.ObjectEnd -> putStrLn "{}"
-        _ -> return ()
+transformFile :: FilePath -> TransformRules -> IO ()
+transformFile filePath rules = runEffect $ parseJsonFile filePath >-> includePaths >-> transform rules >-> prettyPrint
 
 prettyPrint :: Consumer Json.Token IO ()
 prettyPrint = flip evalStateT (0, False, False) $ forever $ do
@@ -63,7 +40,7 @@ prettyPrint = flip evalStateT (0, False, False) $ forever $ do
         putStr $ if newline then "\n" ++ concat (replicate depth "  ") else " "
         case token of
             Json.Null -> putStr "null"
-            Json.Boolean bool ->  putStr $ show bool
+            Json.Boolean bool ->  putStr $ if bool then "true" else "false"
             Json.String text -> T.putStr $ T.concat ["\"", text, "\""]
             Json.Number num -> putStr $ show num
             Json.ArrayBegin -> putStr "["

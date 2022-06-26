@@ -1,6 +1,6 @@
 module JsonTransformer
     ( transform
-    , includePath
+    , includePaths
     ) where
 
 import Control.Monad
@@ -18,8 +18,8 @@ import Debug.Trace
 -- | Stream transformer that for each Json Token yields pair of two values:
 --   * Path of the token;
 --   * The token itself.
-includePath :: Monad m => Pipe Json.Token (JsonPath, Json.Token) m ()
-includePath = flip evalStateT rootPath $ forever $ do
+includePaths :: Monad m => Pipe Json.Token (JsonPath, Json.Token) m ()
+includePaths = flip evalStateT rootPath $ forever $ do
     token <- lift await
     currentPath <- get
     lift $ yield (currentPath, token)

@@ -3,4 +3,6 @@ module Main where
 import Lib
 
 main :: IO ()
-main = someFunc
+main = do
+    rules <- readRulesFile "rules.txt"
+    transformFile "testfile.json" rules

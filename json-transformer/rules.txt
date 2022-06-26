@@ -1,0 +1,5 @@
+$[0].first_name = "Konrad"
+$[1].last_name = 314e-2
+$[2].email = true
+$[4].a.b.first_name = null
+$[0].last_name = false

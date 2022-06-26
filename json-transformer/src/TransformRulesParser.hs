@@ -1,4 +1,7 @@
-module TransformRulesParser where
+module TransformRulesParser
+    ( transformRulesParser
+    , parseTransformRules
+    ) where
 
 import Control.Applicative
 import Control.Monad
@@ -32,7 +35,7 @@ pathRootParser = do
 pathMemberParser :: Parser JsonPath
 pathMemberParser = do
     A.char '.'
-    member <- A.takeWhile $ A.notInClass ".[="
+    member <- A.takeWhile $ A.notInClass " .[="
     ObjectPath member <$> jsonPathParser
 
 pathElementParser :: Parser JsonPath
@@ -68,3 +71,6 @@ transformRulesParser :: Parser TransformRules
 transformRulesParser = do
     rule <- whitespaceParser *> transformRuleParser <* whitespaceParser
     (rule:) <$> transformRulesParser <|> return [rule]
+
+parseTransformRules :: Text -> Either String TransformRules
+parseTransformRules = A.parseOnly (transformRulesParser <* A.endOfInput)
