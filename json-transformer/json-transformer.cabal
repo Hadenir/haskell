@@ -30,6 +30,7 @@ library
       JsonTransformer
       Lib
       Parse
+      TransformRules
   other-modules:
       Paths_json_transformer
   hs-source-dirs:

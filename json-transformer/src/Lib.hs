@@ -14,7 +14,32 @@ import JsonParser
 import JsonTransformer
 
 someFunc :: IO ()
-someFunc = runEffect $ parseJsonFile "largetest.json" >-> transform >-> prettyPrint
+someFunc = runEffect $ parseJsonFile "testfile.json" >-> printCurrentPath
+
+printCurrentPath :: Consumer Json.Token IO ()
+printCurrentPath = flip evalStateT Json.rootPath $ forever $ do
+    token <- lift await
+
+    case token of
+        Json.ObjectBegin -> return ()
+        Json.ObjectField member -> modify $ flip Json.enterObject member
+        Json.ArrayBegin -> modify $ flip Json.enterArray 0
+        Json.ArrayEnd -> modify Json.exitPath
+        _ -> do
+            path <- get
+            lift $ lift $ putStr $ show path ++ " = "
+            modify Json.exitPath
+            case Json.getLeaf path of
+                Json.ArrayPath index _ -> modify $ flip Json.enterArray (index + 1)
+                _ -> return ()
+
+    lift $ lift $ case token of
+        Json.Null -> putStrLn "null"
+        Json.Boolean b -> print b
+        Json.String text -> putStrLn $ T.unpack text
+        Json.Number number -> print number
+        Json.ObjectEnd -> putStrLn "{}"
+        _ -> return ()
 
 prettyPrint :: Consumer Json.Token IO ()
 prettyPrint = flip evalStateT (0, False, False) $ forever $ do

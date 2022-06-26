@@ -94,7 +94,7 @@ jsonArrayParser = do
     where
         jsonArrayElementParser :: StreamParser Json.Token
         jsonArrayElementParser = do
-            char <- A.anyChar <* whitespaceParser
+            char <- whitespaceParser *> A.anyChar <* whitespaceParser
             case char of
                 '[' -> (A.char ']' *> parseFinish Json.ArrayEnd) <|> parseNext jsonTokenParser
                 ',' -> parseNext jsonTokenParser
@@ -110,7 +110,7 @@ jsonObjectParser = do
     where
         jsonObjectFieldParser :: StreamParser Json.Token
         jsonObjectFieldParser = do
-            char <- A.anyChar <* whitespaceParser
+            char <- whitespaceParser *> A.anyChar <* whitespaceParser
             case char of
                 '{' -> (A.char '}' *> parseFinish Json.ObjectEnd) <|> parseNext jsonObjectKeyParser
                 ',' -> parseNext jsonObjectKeyParser
