@@ -1,3 +1,4 @@
+-- | Helper module for storing common parsers.
 module ParserCommon
     ( nullParser
     , booleanParser
@@ -13,15 +14,20 @@ import qualified Data.Attoparsec.Text as A
 import Data.Text (Text)
 import qualified Data.Text as T
 
+-- | Parses `null` JSON value.
 nullParser :: Parser ()
 nullParser = void $ A.string "null"
 
+-- | Parses boolean JSON value (`true` / `false`).
 booleanParser :: Parser Bool
 booleanParser = (A.string "true" $> True) <|> (A.string "false" $> False)
 
+-- | Parses numerical JSON value (e.g. `123`, `3.14`, `2.71e-2`).
 numberParser :: Parser Double
 numberParser = A.double
 
+-- | Parses string JSON value, i.e. characters surrounded by quotation marks.
+--   Supports escape sequences.
 stringParser :: Parser Text
 stringParser = A.char '"' *> stringContentParser
     where

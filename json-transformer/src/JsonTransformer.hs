@@ -15,6 +15,7 @@ import JsonPath
 import TransformRules
 
 -- | Stream transformer that for each Json Token yields pair of two values:
+--
 --   * Path of the token;
 --   * The token itself.
 includePaths :: Monad m => Pipe Json.Token (JsonPath, Json.Token) m ()
@@ -35,27 +36,34 @@ includePaths = flip evalStateT rootPath $ forever $ do
                 ArrayPath index _ -> modify $ flip enterArray (index + 1)
                 _ -> return ()
 
+-- | Stream transformer that applies transformations from `TransformRules` into JSON token stream.
 transform :: Monad m => TransformRules -> Pipe (JsonPath, Json.Token) Json.Token m ()
-transform rules = flip evalStateT (0, Nothing) $ forever $ do
-    (currentDepth, targetDepth) <- get
-    (path, token) <- lift await
-
-    unless (isJust targetDepth && currentDepth >= fromJust targetDepth) $
-        case findTransform rules path of
-            Just trans -> lift (exec trans token) >> modify (\(d,_) -> (d, Just $ currentDepth+1))
-            Nothing -> lift $ yield token
-
-    when (isJust targetDepth && currentDepth < fromJust targetDepth) $
-        modify $ \(d,_) -> (d,Nothing)
-
-    case token of
-        Json.ArrayBegin -> modify $ \(d,t) -> (d+1,t)
-        Json.ArrayEnd -> modify $ \(d,t) -> (d-1,t)
-        Json.ObjectBegin -> modify $ \(d,t) -> (d+1,t)
-        Json.ObjectEnd -> modify $ \(d,t) -> (d-1,t)
-        _ -> pure ()
-
+transform rules = flip evalStateT (0, Nothing) $ transform' rules
     where
+        transform' :: Monad m => TransformRules -> StateT (Int, Maybe Int) (Pipe (JsonPath, Json.Token) Json.Token m) ()
+        transform' rules = do
+            (currentDepth, targetDepth) <- get
+            (path, token) <- lift await
+
+            let trans = findTransform rules path
+
+            unless (isJust targetDepth && currentDepth >= fromJust targetDepth) $
+                case trans of
+                    Just trans -> lift (exec trans token) >> modify (\(d,_) -> (d, Just $ currentDepth+1))
+                    Nothing -> lift $ yield token
+
+            when (isJust targetDepth && currentDepth < fromJust targetDepth) $
+                modify $ \(d,_) -> (d,Nothing)
+
+            case token of
+                Json.ArrayBegin -> modify $ \(d,t) -> (d+1,t)
+                Json.ArrayEnd -> modify $ \(d,t) -> (d-1,t)
+                Json.ObjectBegin -> modify $ \(d,t) -> (d+1,t)
+                Json.ObjectEnd -> modify $ \(d,t) -> (d-1,t)
+                _ -> pure ()
+
+            transform' $ removeTransform rules trans path
+
         exec :: Monad m => TransformRule -> Json.Token -> Pipe (JsonPath, Json.Token) Json.Token m ()
         exec (SetValueNull _) _ = yield Json.Null
         exec (SetValueBool bool _) _ = yield $ Json.Boolean bool

@@ -1,9 +1,15 @@
 module Main where
 
 import Lib
+import System.Environment
+import Control.Monad
 
 main :: IO ()
 main = do
-    rules <- readRulesFile "rules.txt"
-    transformFile "testfile.json" "output.json" rules
+    args <- getArgs
+    when (length args /= 3) $ error "Invalid number of arguments"
+
+    let (inputPath:rulesPath:outputPath:_) = args
+    rules <- readRulesFile rulesPath
+    transformFile inputPath outputPath rules
     putStrLn "Done!"

@@ -1,6 +1,7 @@
+-- | This module contains parser for transformation rules file.
+--   It exports single function that allows to execute the parser.
 module TransformRulesParser
-    ( transformRulesParser
-    , parseTransformRules
+    ( parseTransformRules
     ) where
 
 import Control.Applicative
@@ -80,5 +81,6 @@ transformRulesParser = do
     rule <- whitespaceParser *> transformRuleParser <* whitespaceParser
     (rule:) <$> transformRulesParser <|> return [rule]
 
+-- | Parses given text and returns error message if failed, or `TransformRules` on success.
 parseTransformRules :: Text -> Either String TransformRules
 parseTransformRules = A.parseOnly (transformRulesParser <* A.endOfInput)

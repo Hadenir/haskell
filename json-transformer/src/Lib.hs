@@ -17,6 +17,8 @@ import JsonTransformer
 import TransformRules
 import TransformRulesParser
 
+-- | Opens file at given path and executes transformation rules parser on its contents.
+--   Returns parser result on success.
 readRulesFile :: FilePath -> IO TransformRules
 readRulesFile filePath = do
     content <- T.readFile filePath
@@ -24,10 +26,13 @@ readRulesFile filePath = do
         Right rules -> return rules
         Left errorMsg -> error $ "Failed to parse transform rules: " ++ errorMsg
 
+-- | Given input file path, output file path and a set of transform rules,
+--   transforms contents of the input file and saves results in the output file.
 transformFile :: FilePath -> FilePath -> TransformRules -> IO ()
 transformFile inputPath outputPath rules =
     runEffect $ parseJsonFile inputPath >-> includePaths >-> transform rules >-> saveJsonFile outputPath
 
+-- | Stream consumer that awaits JSON tokens and saves them properely formatted to a file.
 saveJsonFile :: FilePath -> Consumer Json.Token IO ()
 saveJsonFile filePath = flip evalStateT (0, False, False) $ do
     file <- liftIO $ openFile filePath WriteMode
@@ -58,6 +63,7 @@ saveJsonFile filePath = flip evalStateT (0, False, False) $ do
             _ -> modify $ \(d,_,_) -> (d,True,True)
         liftIO $ hFlush file
 
+-- | Stream consumer that awaits JSON tokens and prints them properely formatted to stdout.
 prettyPrint :: Consumer Json.Token IO ()
 prettyPrint = flip evalStateT (0, False, False) $ forever $ do
     token <- lift await

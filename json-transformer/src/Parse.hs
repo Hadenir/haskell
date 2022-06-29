@@ -3,10 +3,10 @@
 -- Both @Producer@s and @Consumer@s can also be @Pipe@s.
 --
 -- __Example:__
--- @
--- someFunc :: IO ()
--- someFunc =  runEffect $ for (parserInput $ streamFile "testfile.json") (lift . print)
--- @
+--
+-- > someFunc :: IO ()
+-- > someFunc =  runEffect $ for (parserInput $ streamFile "testfile.json") (lift . print)
+--
 module Parse
     ( StreamParser
     , ParsePartialResult
@@ -37,6 +37,9 @@ data ParseException = ParseException {errorMsg :: String, context :: [String]}
 instance Exception ParseException
 
 -- | Each parser that is supposed to interoperate with pipes must return this type.
+--
+-- > data ParsePartialResult a = PartialResult (Maybe a) (Maybe (StreamParser a)) Bool
+--
 -- * First parameter is the parser's result. When a @Just@ value is supplied
 --   it is yielded to the @Consumer@. For @Nothing@ no value is yielded.
 -- * Second parameter represents parser to be used for further parsing.

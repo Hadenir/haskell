@@ -1,3 +1,5 @@
+-- | This module contains stream parser for json file.
+--   It exports single function that allows to execute the parser.
 module JsonParser
     ( parseJsonFile
     ) where
@@ -93,5 +95,6 @@ jsonTokenParser = whitespaceParser *> (
         jsonStringParser
     ) <* whitespaceParser
 
+-- | Execute JSON parser. Returns Pipes `Producer` that yields tokens found inside the file.
 parseJsonFile :: FilePath -> Producer Json.Token IO ()
 parseJsonFile filePath = parserInput (streamFile filePath) >-> parse jsonTokenParser
