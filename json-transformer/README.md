@@ -8,7 +8,7 @@ Tool for transforming json files using defined set of rules.
 jsot <input_file.json> <rules_file.txt> <output_file.json>
 ```
 
-## Rules
+## Transformation Rules
 
 ### JSON Path
 
@@ -24,6 +24,8 @@ $.foo.bar
 $.foo[0].bar
 $[0].foo.bar
 ```
+
+### Transformations
 
 Following transformation rules are implemented:
 
