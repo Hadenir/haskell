@@ -9,7 +9,7 @@ version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/hadenir/haskell/tree/main/json-transformer#readme>
 homepage:       https://github.com/hadenir/json-transformer#readme
 bug-reports:    https://github.com/hadenir/json-transformer/issues
-author:         Konrad Hadenir Brzózka
+author:         Konrad 'Hadenir' Brzózka
 maintainer:     example@example.com
 copyright:      2022 Hadenir
 license:        BSD3

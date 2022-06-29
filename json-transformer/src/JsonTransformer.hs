@@ -5,6 +5,7 @@ module JsonTransformer
 
 import Control.Monad
 import Control.Monad.Trans.State.Strict
+import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
 import Pipes
@@ -12,8 +13,6 @@ import Pipes
 import qualified Json
 import JsonPath
 import TransformRules
-
-import Debug.Trace
 
 -- | Stream transformer that for each Json Token yields pair of two values:
 --   * Path of the token;
@@ -37,24 +36,32 @@ includePaths = flip evalStateT rootPath $ forever $ do
                 _ -> return ()
 
 transform :: Monad m => TransformRules -> Pipe (JsonPath, Json.Token) Json.Token m ()
-transform rules = forever $ do
-    (path, token) <- await
+transform rules = flip evalStateT (0, Nothing) $ forever $ do
+    (currentDepth, targetDepth) <- get
+    (path, token) <- lift await
 
-    case findTransform rules path of
-        Just trans -> exec trans token
-        Nothing -> yield token
+    unless (isJust targetDepth && currentDepth >= fromJust targetDepth) $
+        case findTransform rules path of
+            Just trans -> lift (exec trans token) >> modify (\(d,_) -> (d, Just $ currentDepth+1))
+            Nothing -> lift $ yield token
+
+    when (isJust targetDepth && currentDepth < fromJust targetDepth) $
+        modify $ \(d,_) -> (d,Nothing)
+
+    case token of
+        Json.ArrayBegin -> modify $ \(d,t) -> (d+1,t)
+        Json.ArrayEnd -> modify $ \(d,t) -> (d-1,t)
+        Json.ObjectBegin -> modify $ \(d,t) -> (d+1,t)
+        Json.ObjectEnd -> modify $ \(d,t) -> (d-1,t)
+        _ -> pure ()
 
     where
         exec :: Monad m => TransformRule -> Json.Token -> Pipe (JsonPath, Json.Token) Json.Token m ()
-        exec _ t@Json.ObjectBegin = yield t
-        exec _ t@(Json.ObjectField _) = yield t
-        exec _ t@Json.ObjectEnd = yield t
-        exec _ t@Json.ArrayBegin = yield t
-        exec _ t@Json.ArrayEnd = yield t
         exec (SetValueNull _) _ = yield Json.Null
         exec (SetValueBool bool _) _ = yield $ Json.Boolean bool
         exec (SetValueString text _) _ = yield $ Json.String text
         exec (SetValueNumber num _) _ = yield $ Json.Number num
+        exec (RemoveEntry _) _ = return ()
 
 -- | Stream transformer of JSON tokens that discards every value
 --   that isn't in an object field of passed name.

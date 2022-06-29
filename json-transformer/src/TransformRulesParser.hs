@@ -45,8 +45,13 @@ pathElementParser = do
     A.char ']'
     ArrayPath (fromIntegral index) <$> jsonPathParser
 
+pathArrayParser :: Parser JsonPath
+pathArrayParser = do
+    A.string "[*]"
+    ArrayPath (-1) <$> jsonPathParser
+
 jsonPathParser :: Parser JsonPath
-jsonPathParser = pathMemberParser <|> pathElementParser <|> return NilPath
+jsonPathParser = pathMemberParser <|> pathElementParser <|> pathArrayParser <|> return NilPath
 
 transformNullParser :: Parser (JsonPath -> TransformRule)
 transformNullParser = nullParser $> SetValueNull
@@ -60,11 +65,14 @@ transformStringParser = SetValueString <$> stringParser
 transformNumberParser :: Parser (JsonPath -> TransformRule)
 transformNumberParser = SetValueNumber <$> numberParser
 
+transformRemoveParser :: Parser (JsonPath -> TransformRule)
+transformRemoveParser = A.char '~' $> RemoveEntry
+
 transformRuleParser :: Parser TransformRule
 transformRuleParser = do
     path <- pathRootParser
     whitespaceParser *> A.char '=' <* whitespaceParser
-    transform <- transformNullParser <|> transformBoolParser <|> transformStringParser <|> transformNumberParser
+    transform <- transformNullParser <|> transformBoolParser <|> transformStringParser <|> transformRemoveParser <|> transformNumberParser
     return $ transform path
 
 transformRulesParser :: Parser TransformRules

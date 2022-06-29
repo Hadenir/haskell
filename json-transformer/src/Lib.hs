@@ -24,8 +24,39 @@ readRulesFile filePath = do
         Right rules -> return rules
         Left errorMsg -> error $ "Failed to parse transform rules: " ++ errorMsg
 
-transformFile :: FilePath -> TransformRules -> IO ()
-transformFile filePath rules = runEffect $ parseJsonFile filePath >-> includePaths >-> transform rules >-> prettyPrint
+transformFile :: FilePath -> FilePath -> TransformRules -> IO ()
+transformFile inputPath outputPath rules =
+    runEffect $ parseJsonFile inputPath >-> includePaths >-> transform rules >-> saveJsonFile outputPath
+
+saveJsonFile :: FilePath -> Consumer Json.Token IO ()
+saveJsonFile filePath = flip evalStateT (0, False, False) $ do
+    file <- liftIO $ openFile filePath WriteMode
+    forever $ do
+        token <- lift await
+        case token of
+            Json.ArrayEnd -> modify $ \(d,_,_) -> (d-1,False,True)
+            Json.ObjectEnd -> modify $ \(d,_,_) -> (d-1,False,True)
+            _ -> return ()
+        (depth, comma, newline) <- get
+        liftIO $ do
+            hPutStr file $ if comma then  "," else ""
+            hPutStr file $ if newline then "\n" ++ concat (replicate depth "  ") else " "
+            case token of
+                Json.Null -> hPutStr file "null"
+                Json.Boolean bool ->  hPutStr file $ if bool then "true" else "false"
+                Json.String text -> T.hPutStr file $ T.concat ["\"", text, "\""]
+                Json.Number num -> hPutStr file $ show num
+                Json.ArrayBegin -> hPutStr file "["
+                Json.ArrayEnd -> hPutStr file "]"
+                Json.ObjectBegin -> hPutStr file "{"
+                Json.ObjectEnd -> hPutStr file "}"
+                Json.ObjectField key -> T.hPutStr file $ T.concat ["\"", key, "\":"]
+        case token of
+            Json.ArrayBegin -> modify $ \(d,_,_) -> (d+1,False,True)
+            Json.ObjectBegin -> modify $ \(d,_,_) -> (d+1,False,True)
+            Json.ObjectField _ -> modify $ \(d,_,_) -> (d,False,False)
+            _ -> modify $ \(d,_,_) -> (d,True,True)
+        liftIO $ hFlush file
 
 prettyPrint :: Consumer Json.Token IO ()
 prettyPrint = flip evalStateT (0, False, False) $ forever $ do
@@ -35,7 +66,7 @@ prettyPrint = flip evalStateT (0, False, False) $ forever $ do
         Json.ObjectEnd -> modify $ \(d,_,_) -> (d-1,False,True)
         _ -> return ()
     (depth, comma, newline) <- get
-    lift $ lift $ do
+    liftIO $ do
         putStr $ if comma then  "," else ""
         putStr $ if newline then "\n" ++ concat (replicate depth "  ") else " "
         case token of

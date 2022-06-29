@@ -1,0 +1,34 @@
+ [
+  "Konrad",
+  {
+    "id": 2.0,
+    "first_name": "Giavani",
+    "last_name": 3.14,
+    "email": "gfrediani1@senate.gov",
+    "gender": "Male",
+    "ip_address": null
+  },
+  {
+    "id": 3.0,
+    "first_name": "Noell",
+    "last_name": "Bea",
+    "email": true,
+    "gender": "Female",
+    "ip_address": null
+  },
+  {
+    "id": 4.0,
+    "first_name": "Willard",
+    "last_name": "Valek",
+    "email": "wvalek3@vk.com",
+    "gender": "Male",
+    "ip_address": null
+  },
+  {
+    "a": true
+  },
+  {
+    "test": [
+    ]
+  }
+]

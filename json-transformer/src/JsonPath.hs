@@ -23,6 +23,14 @@ instance Show JsonPath where
     show (ObjectPath member next) = "." ++ T.unpack member ++ show next
     show (ArrayPath index next) = "[" ++ show index ++ "]" ++ show next
 
+instance Ord JsonPath where
+    NilPath <= _ = True
+    (RootPath path1) <= (RootPath path2) = path1 <= path2
+    (ObjectPath member1 path1) <= (ObjectPath member2 path2) = member1 == member2 && path1 <= path2
+    (ArrayPath (-1) path1) <= (ArrayPath _ path2) = path1 <= path2
+    (ArrayPath index1 path1) <= (ArrayPath index2 path2) = index1 == index2 && path1 <= path2
+    path1 <= path2 = path1 == path2
+
 rootPath :: JsonPath
 rootPath = RootPath NilPath
 
